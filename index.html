@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Balap Mobil Modif 1-100</title>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap');
+    body { margin:0; background:#0d0d0d; display:flex; justify-content:center; align-items:center; height:100vh; font-family:'Orbitron', sans-serif; overflow:hidden; }
+    #gameWrap { position:relative; }
+    canvas { background:#222; border-radius:15px; box-shadow:0 0 30px #00f5ff; }
+    #ui { position:absolute; top:10px; left:10px; right:10px; display:flex; justify-content:space-between; color:#fff; text-shadow:0 0 5px #00f5ff; }
+    #panel { position:absolute; bottom:10px; left:10px; right:10px; background:rgba(0,0,0,0.8); padding:10px; border-radius:10px; display:flex; gap:10px; justify-content:center; }
+    button { background:#00f5ff; border:none; padding:8px 12px; border-radius:20px; font-weight:bold; cursor:pointer; box-shadow:0 0 10px #00f5ff; }
+    button:active { transform:scale(0.9); }
+    input[type=range] { width:100px; accent-color:#00f5ff; }
+    .warna { width:25px; height:25px; border-radius:50%; border:2px solid white; cursor:pointer; }
+</style>
+</head>
+<body>
+<div id="gameWrap">
+    <canvas id="game" width="400" height="620"></canvas>
+    <div id="ui">
+        <div id="skor">SKOR: 0</div>
+        <div id="speedTxt">SPEED: 30</div>
+    </div>
+    <div id="panel">
+        <div style="color:white; font-size:10px;">SPEED <input type="range" id="speed" min="1" max="100" value="30"></div>
+        <button id="nos">NOS 💨</button>
+        <div class="warna" style="background:red" data-warna="red"></div>
+        <div class="warna" style="background:#00f5ff" data-warna="#00f5ff"></div>
+        <div class="warna" style="background:yellow" data-warna="yellow"></div>
+        <div class="warna" style="background:lime" data-warna="lime"></div>
+    </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const speedSlider = document.getElementById('speed');
+const speedTxt = document.getElementById('speedTxt');
+const skorTxt = document.getElementById('skor');
+
+let kecepatan = 30;
+let skor = 0;
+let nosAktif = false;
+let warnaMobil = 'red';
+
+let player = { x: 180, y: 500, w: 45, h: 80 };
+let garis = Array.from({length:15}, (_,i)=>({y:i*50}));
+let lawan = [];
+let keys = {};
+
+speedSlider.oninput = e => {
+    kecepatan = parseInt(e.target.value);
+    speedTxt.innerText = `SPEED: ${kecepatan}`;
+}
+document.querySelectorAll('.warna').forEach(el=>{
+    el.onclick = ()=> warnaMobil = el.dataset.warna;
+});
+document.getElementById('nos').onclick = ()=>{
+    nosAktif = true;
+    setTimeout(()=> nosAktif = false, 1500);
+}
+
+document.addEventListener('keydown', e=> keys[e.key]=true);
+document.addEventListener('keyup', e=> keys[e.key]=false);
+
+canvas.addEventListener('touchmove', e=>{
+    let tx = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+    player.x = tx - player.w/2;
+    e.preventDefault();
+},{passive:false});
+
+function buatLawan(){
+    lawan.push({
+        x: Math.random()*300 + 20,
+        y: -100,
+        w: 45, h: 80,
+        warna: `hsl(${Math.random()*360},100%,50%)`
+    });
+}
+setInterval(buatLawan, 1000);
+
+function update(){
+    let speedReal = nosAktif ? kecepatan * 2.5 : kecepatan;
+    
+    if(keys['ArrowLeft'] && player.x > 5) player.x -= 7;
+    if(keys['ArrowRight'] && player.x < 350) player.x += 7;
+
+    garis.forEach(g=>{
+        g.y += speedReal / 4;
+        if(g.y > 620) g.y = -50;
+    });
+
+    lawan.forEach(m=>{
+        m.y += speedReal / 4;
+        if(m.y > 700){
+            m.y = -100;
+            m.x = Math.random()*300 + 20;
+            skor++;
+            skorTxt.innerText = `SKOR: ${skor}`;
+        }
+        // MODE TANPA MATI - cuma mental
+        if(m.x < player.x + player.w && m.x + m.w > player.x && m.y < player.y + player.h && m.y + m.h > player.y){
+            player.x += (player.x < m.x) ? -25 : 25;
+        }
+    });
+}
+
+function gambarMobil(x,y,w,h,warna, isPlayer){
+    ctx.shadowBlur = isPlayer ? 20 : 0;
+    ctx.shadowColor = warna;
+    
+    // Body
+    ctx.fillStyle = warna;
+    ctx.fillRect(x, y, w, h);
+    
+    // Atap
+    ctx.fillStyle = '#111';
+    ctx.fillRect(x+5, y+20, w-10, 25);
+    
+    // Spoiler - biar modif
+    if(isPlayer){
+        ctx.fillRect(x-5, y+h-5, w+10, 6);
+        // Neon bawah
+        ctx.fillStyle = warna;
+        ctx.fillRect(x, y+h, w, 4);
+        // Lampu
+        ctx.fillStyle = 'white';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = 'white';
+        ctx.fillRect(x+5, y, 10, 6);
+        ctx.fillRect(x+w-15, y, 10, 6);
+    } else {
+        // Lampu lawan
+        ctx.fillStyle = 'white';
+        ctx.fillRect(x+5, y+h-6, 10, 6);
+        ctx.fillRect(x+w-15, y+h-6, 10, 6);
+    }
+    ctx.shadowBlur = 0;
+}
+
+function gambar(){
+    ctx.clearRect(0,0,400,620);
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(0,0,400,620);
+
+    // Jalan
+    ctx.fillStyle = 'white';
+    garis.forEach(g=>{
+        ctx.fillRect(195, g.y, 10, 30);
+    });
+
+    // Tepi jalan
+    ctx.fillStyle = nosAktif ? '#00f5ff' : 'white';
+    ctx.fillRect(0,0,10,620);
+    ctx.fillRect(390,0,10,620);
+
+    lawan.forEach(m=> gambarMobil(m.x, m.y, m.w, m.h, m.warna, false));
+    gambarMobil(player.x, player.y, player.w, player.h, warnaMobil, true);
+
+    // Efek NOS
+    if(nosAktif){
+        ctx.fillStyle = 'rgba(0,245,255,0.3)';
+        ctx.fillRect(player.x, player.y+80, player.w, 40);
+    }
+}
+
+function loop(){
+    update();
+    gambar();
+    requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
